@@ -1,13 +1,27 @@
 import { FolderGit2, Moon, Plus, Sun } from "lucide-react";
+import { open } from "@tauri-apps/plugin-dialog";
 import { useThemeStore } from "../../store/theme";
+import { useReposStore } from "../../store/repos";
 
 export default function Dashboard() {
   const mode = useThemeStore((s) => s.mode);
   const setMode = useThemeStore((s) => s.setMode);
+  const addRepos = useReposStore((s) => s.addRepos);
   const isDark =
     mode === "dark" ||
     (mode === "system" &&
       window.matchMedia("(prefers-color-scheme: dark)").matches);
+
+  const handleAdd = async () => {
+    const dir = await open({
+      directory: true,
+      multiple: false,
+      title: "选择仓库目录",
+    });
+    if (typeof dir === "string") {
+      await addRepos([dir]).catch(() => {});
+    }
+  };
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6 bg-base">
@@ -23,6 +37,7 @@ export default function Dashboard() {
         </div>
         <button
           type="button"
+          onClick={handleAdd}
           className="mt-1 flex h-8 items-center gap-1.5 rounded-md bg-accent px-3.5 text-[13px] font-medium text-white transition-colors duration-120 hover:bg-accent-hover"
         >
           <Plus size={14} strokeWidth={2} />
