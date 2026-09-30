@@ -1,6 +1,6 @@
 import TitleBar from "./components/shell/TitleBar";
 import Sidebar from "./components/shell/Sidebar";
-import Dashboard from "./components/shell/Dashboard";
+import Dashboard from "./components/dashboard/Dashboard";
 import ScanDialog from "./components/shell/ScanDialog";
 
 function App() {
