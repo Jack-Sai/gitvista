@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { FolderOpen, Plus, Search } from "lucide-react";
+import { FolderOpen, FolderSearch, Plus, Search } from "lucide-react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useShellStore } from "../../store/shell";
 import { useReposStore } from "../../store/repos";
@@ -59,6 +59,7 @@ function RepoListItem({ repo }: { repo: RepoSummary }) {
 
 export default function Sidebar() {
   const collapsed = useShellStore((s) => s.sidebarCollapsed);
+  const openScan = useShellStore((s) => s.openScan);
   const repos = useReposStore((s) => s.repos);
   const addRepos = useReposStore((s) => s.addRepos);
   const [query, setQuery] = useState("");
@@ -104,6 +105,14 @@ export default function Sidebar() {
             className="h-7 w-full rounded-md border border-border-subtle bg-base pr-2 pl-7 text-fg-primary transition-colors duration-120 outline-none placeholder:text-fg-muted focus:border-accent"
           />
         </div>
+        <button
+          type="button"
+          onClick={openScan}
+          title="扫描根目录"
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border-subtle bg-base text-fg-secondary transition-colors duration-120 hover:border-border-default hover:text-fg-primary"
+        >
+          <FolderSearch size={14} strokeWidth={1.5} />
+        </button>
         <button
           type="button"
           onClick={handleAdd}

@@ -1,6 +1,7 @@
 import TitleBar from "./components/shell/TitleBar";
 import Sidebar from "./components/shell/Sidebar";
 import Dashboard from "./components/shell/Dashboard";
+import ScanDialog from "./components/shell/ScanDialog";
 
 function App() {
   return (
@@ -12,6 +13,7 @@ function App() {
           <Dashboard />
         </main>
       </div>
+      <ScanDialog />
     </div>
   );
 }

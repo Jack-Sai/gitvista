@@ -1,12 +1,14 @@
-import { FolderGit2, Moon, Plus, Sun } from "lucide-react";
+import { FolderGit2, FolderSearch, Moon, Plus, Sun } from "lucide-react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useThemeStore } from "../../store/theme";
 import { useReposStore } from "../../store/repos";
+import { useShellStore } from "../../store/shell";
 
 export default function Dashboard() {
   const mode = useThemeStore((s) => s.mode);
   const setMode = useThemeStore((s) => s.setMode);
   const addRepos = useReposStore((s) => s.addRepos);
+  const openScan = useShellStore((s) => s.openScan);
   const isDark =
     mode === "dark" ||
     (mode === "system" &&
@@ -35,14 +37,24 @@ export default function Dashboard() {
         <div className="max-w-sm text-center text-[13px] text-fg-secondary">
           添加或扫描本地仓库，开始统一管理你的 Git 仓库。
         </div>
-        <button
-          type="button"
-          onClick={handleAdd}
-          className="mt-1 flex h-8 items-center gap-1.5 rounded-md bg-accent px-3.5 text-[13px] font-medium text-white transition-colors duration-120 hover:bg-accent-hover"
-        >
-          <Plus size={14} strokeWidth={2} />
-          添加仓库
-        </button>
+        <div className="mt-1 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleAdd}
+            className="flex h-8 items-center gap-1.5 rounded-md bg-accent px-3.5 text-[13px] font-medium text-white transition-colors duration-120 hover:bg-accent-hover"
+          >
+            <Plus size={14} strokeWidth={2} />
+            添加仓库
+          </button>
+          <button
+            type="button"
+            onClick={openScan}
+            className="flex h-8 items-center gap-1.5 rounded-md border border-border-default px-3.5 text-[13px] font-medium text-fg-secondary transition-colors duration-120 hover:bg-hover hover:text-fg-primary"
+          >
+            <FolderSearch size={14} strokeWidth={1.5} />
+            扫描目录
+          </button>
+        </div>
       </div>
 
       <div className="absolute right-4 bottom-4 flex items-center gap-1 rounded-md border border-border-subtle bg-elevated p-1">
