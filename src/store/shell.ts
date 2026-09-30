@@ -7,6 +7,8 @@ interface ShellState {
   scanOpen: boolean;
   openScan: () => void;
   closeScan: () => void;
+  drawerOpen: boolean;
+  toggleDrawer: () => void;
 }
 
 export const useShellStore = create<ShellState>()(
@@ -18,10 +20,15 @@ export const useShellStore = create<ShellState>()(
       scanOpen: false,
       openScan: () => set({ scanOpen: true }),
       closeScan: () => set({ scanOpen: false }),
+      drawerOpen: true,
+      toggleDrawer: () => set((s) => ({ drawerOpen: !s.drawerOpen })),
     }),
     {
       name: "gitvista-shell",
-      partialize: (s) => ({ sidebarCollapsed: s.sidebarCollapsed }),
+      partialize: (s) => ({
+        sidebarCollapsed: s.sidebarCollapsed,
+        drawerOpen: s.drawerOpen,
+      }),
     },
   ),
 );

@@ -1,5 +1,6 @@
 import { ChevronLeft, Download, GitPullRequestArrow, Upload } from "lucide-react";
 import GraphView from "./GraphView";
+import ChangesDrawer from "../workbench/ChangesDrawer";
 import { useReposStore } from "../../store/repos";
 
 interface RepoViewProps {
@@ -84,7 +85,10 @@ export default function RepoView({ repoPath }: RepoViewProps) {
         </div>
       </div>
 
-      <GraphView repoPath={repoPath} />
+      <div className="flex min-h-0 flex-1 flex-col">
+        <GraphView repoPath={repoPath} />
+        <ChangesDrawer repoPath={repoPath} />
+      </div>
     </div>
   );
 }
