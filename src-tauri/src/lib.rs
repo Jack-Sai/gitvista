@@ -1,5 +1,6 @@
 mod commands;
 
+use commands::graph::get_commit_graph;
 use commands::repos::{open_repository, scan_repositories};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -9,7 +10,8 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             open_repository,
-            scan_repositories
+            scan_repositories,
+            get_commit_graph
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
