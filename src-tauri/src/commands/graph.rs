@@ -197,6 +197,12 @@ fn layout(
         let mut refs = refs_map.get(&item.id).cloned().unwrap_or_default();
         sort_refs(&mut refs);
 
+        let lane_count = slots
+            .iter()
+            .rposition(|s| s.is_some())
+            .map(|i| i + 1)
+            .unwrap_or(1);
+
         rows.push(GraphRow {
             commit: GraphCommit {
                 id: item.id.to_string(),
@@ -214,7 +220,7 @@ fn layout(
             },
             throughs,
             edges,
-            lane_count: slots.len() as u8,
+            lane_count: lane_count as u8,
         });
     }
 
@@ -275,4 +281,104 @@ pub fn get_commit_graph(
         total,
         start,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn oid(n: u8) -> Oid {
+        Oid::from_str(&format!("{:040x}", n)).unwrap()
+    }
+
+    fn item(n: u8, parents: &[u8]) -> WalkItem {
+        WalkItem {
+            id: oid(n),
+            parents: parents.iter().map(|p| oid(*p)).collect(),
+            summary: format!("commit {}", n),
+            author_name: "tester".to_string(),
+            author_email: "t@example.com".to_string(),
+            time: 1_700_000_000 + n as i64,
+        }
+    }
+
+    fn refs_map() -> HashMap<Oid, Vec<CommitRef>> {
+        HashMap::new()
+    }
+
+    #[test]
+    fn linear_history_single_lane() {
+        let items = vec![item(3, &[2]), item(2, &[1]), item(1, &[])];
+        let rows = layout(&items, &refs_map());
+        assert_eq!(rows.len(), 3);
+        for row in &rows {
+            assert_eq!(row.node.lane, 0);
+            assert_eq!(row.lane_count, 1);
+        }
+        for row in &rows[..2] {
+            assert_eq!(row.edges.len(), 1);
+            assert_eq!(row.edges[0].from, 0);
+            assert_eq!(row.edges[0].to, 0);
+        }
+        assert!(rows[2].edges.is_empty());
+    }
+
+    #[test]
+    fn branch_and_merge() {
+        let items = vec![
+            item(4, &[2, 3]),
+            item(2, &[1]),
+            item(3, &[1]),
+            item(1, &[]),
+        ];
+        let rows = layout(&items, &refs_map());
+
+        let merge = &rows[0];
+        assert_eq!(merge.node.lane, 0);
+        assert_eq!(merge.lane_count, 2);
+        assert_eq!(merge.edges.len(), 2);
+        assert_eq!((merge.edges[0].from, merge.edges[0].to), (0, 0));
+        assert_eq!((merge.edges[1].from, merge.edges[1].to), (0, 1));
+        assert!(!merge.edges[0].from_top);
+        assert_eq!(merge.edges[0].color, 0);
+
+        let b = &rows[1];
+        assert_eq!(b.node.lane, 0);
+        assert_eq!(b.throughs.len(), 1);
+        assert_eq!(b.throughs[0].lane, 1);
+        assert_eq!(b.throughs[0].color, 1);
+
+        let c = &rows[2];
+        assert_eq!(c.node.lane, 1);
+        assert_eq!(c.node.color, 1);
+        assert_eq!(c.throughs.len(), 1);
+        assert_eq!(c.throughs[0].lane, 0);
+        assert_eq!(c.edges.len(), 1);
+        assert_eq!((c.edges[0].from, c.edges[0].to), (1, 0));
+        assert!(c.edges[0].from_top);
+
+        let root = &rows[3];
+        assert_eq!(root.node.lane, 0);
+        assert!(root.edges.is_empty());
+        assert!(root.throughs.is_empty());
+        assert_eq!(root.lane_count, 1);
+    }
+
+    #[test]
+    fn three_way_branch() {
+        let items = vec![
+            item(5, &[4]),
+            item(4, &[3]),
+            item(3, &[1]),
+            item(2, &[1]),
+            item(1, &[]),
+        ];
+        let rows = layout(&items, &refs_map());
+        assert_eq!(rows.len(), 5);
+        for row in &rows {
+            assert!(row.lane_count >= 1);
+        }
+        assert_eq!(rows[4].node.lane, 0);
+        assert!(rows[4].edges.is_empty());
+    }
 }
