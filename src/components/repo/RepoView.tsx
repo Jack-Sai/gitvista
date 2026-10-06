@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   ChevronLeft,
@@ -32,14 +32,6 @@ export default function RepoView({ repoPath }: RepoViewProps) {
   const queryClient = useQueryClient();
   const [op, setOp] = useState<OpKind | null>(null);
   const [opError, setOpError] = useState<string | null>(null);
-
-  if (!repo) {
-    return (
-      <div className="flex flex-1 items-center justify-center text-[13px] text-fg-muted">
-        仓库不存在
-      </div>
-    );
-  }
 
   const invalidate = async () => {
     await queryClient.invalidateQueries({ queryKey: ["worktree", repoPath] });
@@ -77,6 +69,39 @@ export default function RepoView({ repoPath }: RepoViewProps) {
       setOp(null);
     }
   };
+
+  const runOpRef = useRef(runOp);
+  runOpRef.current = runOp;
+  const opRef = useRef<OpKind | null>(null);
+  opRef.current = op;
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      if (opRef.current !== null) return;
+      const key = e.key.toLowerCase();
+      if (key === "r" && !e.shiftKey) {
+        e.preventDefault();
+        runOpRef.current("fetch");
+      } else if (key === "r" && e.shiftKey) {
+        e.preventDefault();
+        runOpRef.current("pull");
+      } else if (key === "u" && e.shiftKey) {
+        e.preventDefault();
+        runOpRef.current("push");
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  if (!repo) {
+    return (
+      <div className="flex flex-1 items-center justify-center text-[13px] text-fg-muted">
+        仓库不存在
+      </div>
+    );
+  }
 
   const opButton = (kind: OpKind, label: string, icon: React.ReactNode) => (
     <button

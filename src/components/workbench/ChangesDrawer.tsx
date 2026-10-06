@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
 import {
@@ -108,6 +108,23 @@ export default function ChangesDrawer({ repoPath }: ChangesDrawerProps) {
     themeMode === "dark" ||
     (themeMode === "system" &&
       window.matchMedia("(prefers-color-scheme: dark)").matches);
+
+  const commitRef = useRef(handleCommit);
+  commitRef.current = handleCommit;
+  const canCommitRef = useRef(false);
+  canCommitRef.current =
+    !committing && message.trim() !== "" && (status?.staged.length ?? 0) > 0;
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && canCommitRef.current) {
+        e.preventDefault();
+        commitRef.current();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   const renderEntry = (entry: FileEntry, stagedSide: boolean) => (
     <button
