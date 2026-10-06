@@ -1,17 +1,37 @@
-import { ChevronLeft, Download, GitPullRequestArrow, Upload } from "lucide-react";
+import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  ChevronLeft,
+  Download,
+  GitPullRequestArrow,
+  Loader2,
+  Upload,
+  X,
+} from "lucide-react";
+import { invoke } from "@tauri-apps/api/core";
 import GraphView from "./GraphView";
 import ChangesDrawer from "../workbench/ChangesDrawer";
 import { useReposStore } from "../../store/repos";
+
+interface GitOpResult {
+  success: boolean;
+  output: string;
+  error: string;
+}
+
+type OpKind = "fetch" | "pull" | "push";
 
 interface RepoViewProps {
   repoPath: string;
 }
 
 export default function RepoView({ repoPath }: RepoViewProps) {
-  const repo = useReposStore((s) =>
-    s.repos.find((r) => r.path === repoPath),
-  );
+  const repo = useReposStore((s) => s.repos.find((r) => r.path === repoPath));
   const selectRepo = useReposStore((s) => s.selectRepo);
+  const refreshRepo = useReposStore((s) => s.refreshRepo);
+  const queryClient = useQueryClient();
+  const [op, setOp] = useState<OpKind | null>(null);
+  const [opError, setOpError] = useState<string | null>(null);
 
   if (!repo) {
     return (
@@ -20,6 +40,60 @@ export default function RepoView({ repoPath }: RepoViewProps) {
       </div>
     );
   }
+
+  const invalidate = async () => {
+    await queryClient.invalidateQueries({ queryKey: ["worktree", repoPath] });
+    await queryClient.invalidateQueries({ queryKey: ["commits", repoPath] });
+    await queryClient.invalidateQueries({ queryKey: ["diff"] });
+    await refreshRepo(repoPath);
+  };
+
+  const runOp = async (kind: OpKind) => {
+    setOp(kind);
+    setOpError(null);
+    try {
+      let result: GitOpResult;
+      if (kind === "fetch") {
+        result = await invoke<GitOpResult>("git_fetch", { repoPath });
+      } else if (kind === "pull") {
+        result = await invoke<GitOpResult>("git_pull", {
+          repoPath,
+          rebase: false,
+        });
+      } else {
+        result = await invoke<GitOpResult>("git_push", {
+          repoPath,
+          forceWithLease: false,
+        });
+      }
+      if (!result.success) {
+        setOpError(result.error);
+      } else {
+        await invalidate();
+      }
+    } catch (e) {
+      setOpError(typeof e === "string" ? e : "网络操作失败");
+    } finally {
+      setOp(null);
+    }
+  };
+
+  const opButton = (kind: OpKind, label: string, icon: React.ReactNode) => (
+    <button
+      type="button"
+      onClick={() => runOp(kind)}
+      disabled={op !== null}
+      title={label}
+      className="flex h-7 items-center gap-1.5 rounded-md border border-border-default px-2.5 text-[12px] text-fg-secondary transition-colors duration-120 hover:bg-hover hover:text-fg-primary disabled:opacity-50"
+    >
+      {op === kind ? (
+        <Loader2 size={13} strokeWidth={1.5} className="animate-spin" />
+      ) : (
+        icon
+      )}
+      {label}
+    </button>
+  );
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden bg-base">
@@ -55,35 +129,38 @@ export default function RepoView({ repoPath }: RepoViewProps) {
         )}
 
         <div className="ml-auto flex items-center gap-1.5">
-          <button
-            type="button"
-            disabled
-            title="Fetch（开发中）"
-            className="flex h-7 items-center gap-1.5 rounded-md border border-border-default px-2.5 text-[12px] text-fg-secondary transition-colors duration-120 hover:bg-hover disabled:opacity-50"
-          >
-            <Download size={13} strokeWidth={1.5} />
-            Fetch
-          </button>
-          <button
-            type="button"
-            disabled
-            title="Pull（开发中）"
-            className="flex h-7 items-center gap-1.5 rounded-md border border-border-default px-2.5 text-[12px] text-fg-secondary transition-colors duration-120 hover:bg-hover disabled:opacity-50"
-          >
-            <GitPullRequestArrow size={13} strokeWidth={1.5} />
-            Pull
-          </button>
-          <button
-            type="button"
-            disabled
-            title="Push（开发中）"
-            className="flex h-7 items-center gap-1.5 rounded-md border border-border-default px-2.5 text-[12px] text-fg-secondary transition-colors duration-120 hover:bg-hover disabled:opacity-50"
-          >
-            <Upload size={13} strokeWidth={1.5} />
-            Push
-          </button>
+          {opButton(
+            "fetch",
+            "Fetch",
+            <Download size={13} strokeWidth={1.5} />,
+          )}
+          {opButton(
+            "pull",
+            "Pull",
+            <GitPullRequestArrow size={13} strokeWidth={1.5} />,
+          )}
+          {opButton(
+            "push",
+            "Push",
+            <Upload size={13} strokeWidth={1.5} />,
+          )}
         </div>
       </div>
+
+      {opError && (
+        <div className="flex shrink-0 items-center gap-2 border-b border-danger/30 bg-danger/10 px-3 py-1.5 text-[12px] text-danger">
+          <span className="min-w-0 flex-1 whitespace-pre-wrap">
+            {opError}
+          </span>
+          <button
+            type="button"
+            onClick={() => setOpError(null)}
+            className="flex h-5 w-5 shrink-0 items-center justify-center rounded-sm hover:bg-danger/20"
+          >
+            <X size={12} strokeWidth={1.5} />
+          </button>
+        </div>
+      )}
 
       <div className="flex min-h-0 flex-1 flex-col">
         <GraphView repoPath={repoPath} />

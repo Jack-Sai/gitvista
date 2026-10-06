@@ -2,6 +2,7 @@ import TitleBar from "./components/shell/TitleBar";
 import Sidebar from "./components/shell/Sidebar";
 import Dashboard from "./components/dashboard/Dashboard";
 import ScanDialog from "./components/shell/ScanDialog";
+import CloneDialog from "./components/shell/CloneDialog";
 import RepoView from "./components/repo/RepoView";
 import { useReposStore } from "./store/repos";
 
@@ -22,6 +23,7 @@ function App() {
         </main>
       </div>
       <ScanDialog />
+      <CloneDialog />
     </div>
   );
 }

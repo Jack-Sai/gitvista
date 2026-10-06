@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   FolderGit2,
   FolderSearch,
+  GitFork,
   LayoutGrid,
   List,
   Moon,
@@ -54,6 +55,7 @@ function Welcome() {
   const setMode = useThemeStore((s) => s.setMode);
   const addRepos = useReposStore((s) => s.addRepos);
   const openScan = useShellStore((s) => s.openScan);
+  const openClone = useShellStore((s) => s.openClone);
   const isDark =
     mode === "dark" ||
     (mode === "system" &&
@@ -98,6 +100,14 @@ function Welcome() {
           >
             <FolderSearch size={14} strokeWidth={1.5} />
             扫描目录
+          </button>
+          <button
+            type="button"
+            onClick={openClone}
+            className="flex h-8 items-center gap-1.5 rounded-md border border-border-default px-3.5 text-[13px] font-medium text-fg-secondary transition-colors duration-120 hover:bg-hover hover:text-fg-primary"
+          >
+            <GitFork size={14} strokeWidth={1.5} />
+            克隆仓库
           </button>
         </div>
       </div>

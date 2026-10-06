@@ -60,6 +60,7 @@ function RepoListItem({ repo }: { repo: RepoSummary }) {
 export default function Sidebar() {
   const collapsed = useShellStore((s) => s.sidebarCollapsed);
   const openScan = useShellStore((s) => s.openScan);
+  const openClone = useShellStore((s) => s.openClone);
   const repos = useReposStore((s) => s.repos);
   const addRepos = useReposStore((s) => s.addRepos);
   const [query, setQuery] = useState("");
@@ -138,13 +139,29 @@ export default function Sidebar() {
             <FolderOpen size={18} strokeWidth={1.5} className="text-fg-muted" />
             <span>{repos.length === 0 ? "还没有仓库" : "无匹配仓库"}</span>
             {repos.length === 0 && (
-              <button
-                type="button"
-                onClick={handleAdd}
-                className="text-[12px] text-accent hover:underline"
-              >
-                点击 + 添加本地仓库
-              </button>
+              <div className="flex flex-col items-center gap-1">
+                <button
+                  type="button"
+                  onClick={handleAdd}
+                  className="text-[12px] text-accent hover:underline"
+                >
+                  点击 + 添加本地仓库
+                </button>
+                <button
+                  type="button"
+                  onClick={openScan}
+                  className="text-[12px] text-accent hover:underline"
+                >
+                  扫描根目录
+                </button>
+                <button
+                  type="button"
+                  onClick={openClone}
+                  className="text-[12px] text-accent hover:underline"
+                >
+                  从 GitHub 克隆
+                </button>
+              </div>
             )}
           </div>
         ) : (
