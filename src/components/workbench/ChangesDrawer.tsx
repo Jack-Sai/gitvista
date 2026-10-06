@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
 import {
@@ -9,11 +9,12 @@ import {
   Plus,
   AlertTriangle,
 } from "lucide-react";
-import CodeMirror from "@uiw/react-codemirror";
 import { useShellStore } from "../../store/shell";
 import { useThemeStore } from "../../store/theme";
 import { useReposStore } from "../../store/repos";
 import DiffView from "./DiffView";
+
+const CodeMirror = lazy(() => import("@uiw/react-codemirror"));
 
 interface FileEntry {
   path: string;
@@ -257,19 +258,27 @@ export default function ChangesDrawer({ repoPath }: ChangesDrawerProps) {
             </div>
 
             <div className="shrink-0 border-t border-border-subtle p-2">
-              <CodeMirror
-                value={message}
-                onChange={setMessage}
-                height="64px"
-                theme={isDark ? "dark" : "light"}
-                placeholder="提交信息（首行标题）"
-                basicSetup={{
-                  lineNumbers: false,
-                  foldGutter: false,
-                  highlightActiveLine: false,
-                }}
-                className="overflow-hidden rounded-md border border-border-subtle text-[12px]"
-              />
+              <Suspense
+                fallback={
+                  <div className="flex h-16 items-center justify-center rounded-md border border-border-subtle bg-base">
+                    <Loader2 size={14} className="animate-spin text-fg-muted" />
+                  </div>
+                }
+              >
+                <CodeMirror
+                  value={message}
+                  onChange={setMessage}
+                  height="64px"
+                  theme={isDark ? "dark" : "light"}
+                  placeholder="提交信息（首行标题）"
+                  basicSetup={{
+                    lineNumbers: false,
+                    foldGutter: false,
+                    highlightActiveLine: false,
+                  }}
+                  className="overflow-hidden rounded-md border border-border-subtle text-[12px]"
+                />
+              </Suspense>
               <div className="mt-1.5 flex items-center gap-2">
                 <label className="flex cursor-pointer items-center gap-1.5 text-[11px] text-fg-secondary">
                   <input
