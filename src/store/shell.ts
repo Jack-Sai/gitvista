@@ -15,6 +15,8 @@ interface ShellState {
   settingsOpen: boolean;
   openSettings: () => void;
   closeSettings: () => void;
+  groupsCollapsed: { favorite: boolean; recent: boolean; all: boolean };
+  toggleGroup: (key: "favorite" | "recent" | "all") => void;
 }
 
 export const useShellStore = create<ShellState>()(
@@ -34,12 +36,21 @@ export const useShellStore = create<ShellState>()(
       settingsOpen: false,
       openSettings: () => set({ settingsOpen: true }),
       closeSettings: () => set({ settingsOpen: false }),
+      groupsCollapsed: { favorite: false, recent: false, all: false },
+      toggleGroup: (key) =>
+        set((s) => ({
+          groupsCollapsed: {
+            ...s.groupsCollapsed,
+            [key]: !s.groupsCollapsed[key],
+          },
+        })),
     }),
     {
       name: "gitvista-shell",
       partialize: (s) => ({
         sidebarCollapsed: s.sidebarCollapsed,
         drawerOpen: s.drawerOpen,
+        groupsCollapsed: s.groupsCollapsed,
       }),
     },
   ),
