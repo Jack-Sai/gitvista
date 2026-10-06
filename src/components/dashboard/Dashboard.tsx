@@ -1,15 +1,20 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { invoke } from "@tauri-apps/api/core";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   FolderGit2,
   FolderSearch,
   GitFork,
   LayoutGrid,
   List,
+  Loader2,
   Moon,
   Plus,
   RefreshCw,
   Search,
   Sun,
+  X,
 } from "lucide-react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useThemeStore } from "../../store/theme";
@@ -19,6 +24,25 @@ import { useDashboardStore, type SortKey } from "../../store/dashboard";
 import type { RepoSummary } from "../../types/repo";
 import RepoCard from "./RepoCard";
 import RepoTable from "./RepoTable";
+
+interface GitOpResult {
+  success: boolean;
+  output: string;
+  error: string;
+}
+
+interface BatchItem {
+  path: string;
+  name: string;
+  ok: boolean;
+  error: string;
+}
+
+interface BatchResult {
+  kind: "fetch" | "pull";
+  results: BatchItem[];
+  cancelled: boolean;
+}
 
 const SORT_LABELS: Record<SortKey, string> = {
   name: "按名称",
@@ -141,12 +165,24 @@ function Welcome() {
 export default function Dashboard() {
   const repos = useReposStore((s) => s.repos);
   const refreshAll = useReposStore((s) => s.refreshAll);
+  const refreshRepo = useReposStore((s) => s.refreshRepo);
+  const selectRepo = useReposStore((s) => s.selectRepo);
   const view = useDashboardStore((s) => s.view);
   const setView = useDashboardStore((s) => s.setView);
   const sort = useDashboardStore((s) => s.sort);
   const setSort = useDashboardStore((s) => s.setSort);
+  const queryClient = useQueryClient();
   const [query, setQuery] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  const [selection, setSelection] = useState<string[]>([]);
+  const [batch, setBatch] = useState<{
+    kind: "fetch" | "pull";
+    done: number;
+    total: number;
+  } | null>(null);
+  const [batchResult, setBatchResult] = useState<BatchResult | null>(null);
+  const lastIndexRef = useRef<number | null>(null);
+  const cancelRef = useRef(false);
 
   useEffect(() => {
     if (repos.length > 0) refreshAll();
@@ -170,7 +206,87 @@ export default function Dashboard() {
     setRefreshing(false);
   };
 
+  const handleOpen = (repo: RepoSummary, e: React.MouseEvent, index: number) => {
+    const mod = e.ctrlKey || e.metaKey;
+    if (e.shiftKey && lastIndexRef.current !== null) {
+      const start = Math.min(lastIndexRef.current, index);
+      const end = Math.max(lastIndexRef.current, index);
+      setSelection(visible.slice(start, end + 1).map((r) => r.path));
+    } else if (mod) {
+      setSelection((prev) =>
+        prev.includes(repo.path)
+          ? prev.filter((p) => p !== repo.path)
+          : [...prev, repo.path],
+      );
+      lastIndexRef.current = index;
+    } else {
+      lastIndexRef.current = index;
+      selectRepo(repo.path);
+    }
+  };
+
+  const runBatch = async (kind: "fetch" | "pull") => {
+    const paths = [...selection];
+    if (paths.length === 0) return;
+    cancelRef.current = false;
+    setBatchResult(null);
+    setBatch({ kind, done: 0, total: paths.length });
+    const results: BatchItem[] = [];
+    let done = 0;
+    const queue = [...paths];
+    const nameOf = (p: string) =>
+      repos.find((r) => r.path === p)?.name ?? p;
+
+    const worker = async () => {
+      while (queue.length > 0) {
+        if (cancelRef.current) return;
+        const path = queue.shift();
+        if (!path) return;
+        try {
+          const res =
+            kind === "fetch"
+              ? await invoke<GitOpResult>("git_fetch", { repoPath: path })
+              : await invoke<GitOpResult>("git_pull", {
+                  repoPath: path,
+                  rebase: false,
+                });
+          results.push({
+            path,
+            name: nameOf(path),
+            ok: res.success,
+            error: res.error,
+          });
+        } catch (e) {
+          results.push({
+            path,
+            name: nameOf(path),
+            ok: false,
+            error: typeof e === "string" ? e : "操作失败",
+          });
+        }
+        done += 1;
+        setBatch((b) => (b ? { ...b, done } : null));
+      }
+    };
+
+    const workers = Array.from(
+      { length: Math.min(4, queue.length) },
+      () => worker(),
+    );
+    await Promise.all(workers);
+
+    setBatch(null);
+    results.sort((a, b) => a.name.localeCompare(b.name, "zh-CN"));
+    setBatchResult({ kind, results, cancelled: cancelRef.current });
+    await Promise.all(paths.map((p) => refreshRepo(p)));
+    await queryClient.invalidateQueries({ queryKey: ["worktree"] });
+    await queryClient.invalidateQueries({ queryKey: ["commits"] });
+  };
+
   if (repos.length === 0) return <Welcome />;
+
+  const failed = batchResult?.results.filter((r) => !r.ok) ?? [];
+  const succeeded = (batchResult?.results.length ?? 0) - failed.length;
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden bg-base">
@@ -205,7 +321,39 @@ export default function Dashboard() {
         </select>
 
         <div className="ml-auto flex items-center gap-1.5">
-          <span className="text-[12px] text-fg-muted tabular-nums">
+          {selection.length > 0 && !batch && (
+            <>
+              <span className="text-[12px] text-accent tabular-nums">
+                已选 {selection.length}
+              </span>
+              <button
+                type="button"
+                onClick={() => runBatch("fetch")}
+                className="flex h-7 items-center gap-1 rounded-md border border-accent/50 bg-accent/10 px-2.5 text-[12px] font-medium text-accent transition-colors duration-120 hover:bg-accent/20"
+              >
+                批量 Fetch
+              </button>
+              <button
+                type="button"
+                onClick={() => runBatch("pull")}
+                className="flex h-7 items-center gap-1 rounded-md border border-accent/50 bg-accent/10 px-2.5 text-[12px] font-medium text-accent transition-colors duration-120 hover:bg-accent/20"
+              >
+                批量 Pull
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelection([])}
+                className="h-7 rounded-md border border-border-default px-2.5 text-[12px] text-fg-secondary transition-colors duration-120 hover:bg-hover"
+              >
+                取消选择
+              </button>
+              <span className="mx-1 h-4 w-px bg-border-subtle" />
+            </>
+          )}
+          <span
+            className="text-[12px] text-fg-muted tabular-nums"
+            title="Ctrl/Cmd+点击多选，Shift 范围选"
+          >
             {visible.length} 个仓库
           </span>
           <button
@@ -249,6 +397,89 @@ export default function Dashboard() {
         </div>
       </div>
 
+      <AnimatePresence>
+        {batch && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="shrink-0 overflow-hidden border-b border-border-subtle bg-surface"
+          >
+            <div className="flex items-center gap-3 px-4 py-2 text-[12px]">
+              <Loader2 size={13} className="animate-spin text-accent" />
+              <span className="text-fg-secondary">
+                批量 {batch.kind === "fetch" ? "Fetch" : "Pull"} 中{" "}
+                <span className="tabular-nums">
+                  {batch.done}/{batch.total}
+                </span>
+              </span>
+              <div className="h-1 w-40 overflow-hidden rounded-full bg-border-subtle">
+                <div
+                  className="h-full rounded-full bg-accent transition-[width] duration-200"
+                  style={{
+                    width: `${(batch.done / Math.max(batch.total, 1)) * 100}%`,
+                  }}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  cancelRef.current = true;
+                }}
+                className="ml-auto text-fg-muted transition-colors duration-120 hover:text-danger"
+              >
+                取消
+              </button>
+            </div>
+          </motion.div>
+        )}
+
+        {!batch && batchResult && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="shrink-0 overflow-hidden border-b border-border-subtle bg-surface"
+          >
+            <div className="flex flex-col gap-1 px-4 py-2 text-[12px]">
+              <div className="flex items-center gap-3">
+                <span className="text-fg-secondary">
+                  批量 {batchResult.kind === "fetch" ? "Fetch" : "Pull"} 完成
+                  {batchResult.cancelled && "（已取消）"}：
+                  <span className="text-success">{succeeded} 成功</span>{" "}
+                  <span className={failed.length > 0 ? "text-danger" : ""}>
+                    / {failed.length} 失败
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setBatchResult(null)}
+                  className="ml-auto flex h-5 w-5 items-center justify-center rounded-sm text-fg-muted hover:bg-hover hover:text-fg-primary"
+                >
+                  <X size={12} strokeWidth={1.5} />
+                </button>
+              </div>
+              {failed.length > 0 && (
+                <div className="max-h-28 overflow-y-auto rounded-md border border-danger/30 bg-danger/5 p-1.5">
+                  {failed.map((r) => (
+                    <div key={r.path} className="flex gap-2 py-0.5">
+                      <span className="shrink-0 font-medium text-fg-primary">
+                        {r.name}
+                      </span>
+                      <span className="truncate text-danger" title={r.error}>
+                        {r.error}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="flex-1 overflow-y-auto p-4">
         {visible.length === 0 ? (
           <div className="py-16 text-center text-[13px] text-fg-muted">
@@ -256,12 +487,23 @@ export default function Dashboard() {
           </div>
         ) : view === "card" ? (
           <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
-            {visible.map((repo) => (
-              <RepoCard key={repo.path} repo={repo} />
+            {visible.map((repo, index) => (
+              <RepoCard
+                key={repo.path}
+                repo={repo}
+                selected={selection.includes(repo.path)}
+                onOpen={(r, e) => handleOpen(r, e, index)}
+              />
             ))}
           </div>
         ) : (
-          <RepoTable repos={visible} />
+          <RepoTable
+            repos={visible}
+            selection={selection}
+            onOpen={(r, e) =>
+              handleOpen(r, e, visible.findIndex((v) => v.path === r.path))
+            }
+          />
         )}
       </div>
     </div>

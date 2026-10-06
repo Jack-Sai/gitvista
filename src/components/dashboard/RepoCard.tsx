@@ -1,7 +1,6 @@
 import type { RepoSummary } from "../../types/repo";
 import { repoStatusKind } from "../../types/repo";
 import { absoluteTime, relativeTime } from "../../lib/time";
-import { useReposStore } from "../../store/repos";
 
 const DOT: Record<string, string> = {
   clean: "bg-success",
@@ -10,21 +9,24 @@ const DOT: Record<string, string> = {
   unknown: "bg-fg-muted",
 };
 
-export default function RepoCard({ repo }: { repo: RepoSummary }) {
-  const selectedPath = useReposStore((s) => s.selectedPath);
-  const selectRepo = useReposStore((s) => s.selectRepo);
+interface RepoCardProps {
+  repo: RepoSummary;
+  selected: boolean;
+  onOpen: (repo: RepoSummary, e: React.MouseEvent) => void;
+}
+
+export default function RepoCard({ repo, selected, onOpen }: RepoCardProps) {
   const kind = repoStatusKind(repo);
-  const selected = selectedPath === repo.path;
 
   return (
     <div
       role="button"
       tabIndex={0}
-      onClick={() => selectRepo(repo.path)}
-      onKeyDown={(e) => e.key === "Enter" && selectRepo(repo.path)}
+      onClick={(e) => onOpen(repo, e)}
+      onKeyDown={(e) => e.key === "Enter" && onOpen(repo, e as never)}
       className={`cursor-pointer rounded-lg border bg-elevated p-3 transition-colors duration-120 ${
         selected
-          ? "border-accent"
+          ? "border-accent ring-1 ring-accent"
           : "border-border-default hover:border-accent/50"
       }`}
     >
