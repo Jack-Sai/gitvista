@@ -211,6 +211,7 @@ export default function RepoView({ repoPath }: RepoViewProps) {
           repoPath={repoPath}
           currentBranch={repo.head_branch}
           onCheckout={handleCheckout}
+          onMutated={invalidate}
           onError={setOpError}
         />
         <div className="flex min-w-0 flex-1 flex-col">
