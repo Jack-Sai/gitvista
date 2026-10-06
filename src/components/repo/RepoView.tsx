@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import GraphView from "./GraphView";
+import RefSidebar from "./RefSidebar";
 import ChangesDrawer from "../workbench/ChangesDrawer";
 import { useReposStore } from "../../store/repos";
 
@@ -36,8 +37,26 @@ export default function RepoView({ repoPath }: RepoViewProps) {
   const invalidate = async () => {
     await queryClient.invalidateQueries({ queryKey: ["worktree", repoPath] });
     await queryClient.invalidateQueries({ queryKey: ["commits", repoPath] });
+    await queryClient.invalidateQueries({ queryKey: ["refs", repoPath] });
     await queryClient.invalidateQueries({ queryKey: ["diff"] });
     await refreshRepo(repoPath);
+  };
+
+  const handleCheckout = async (name: string, force = false) => {
+    try {
+      const res = await invoke<GitOpResult>("checkout_branch", {
+        repoPath,
+        branchName: name,
+        force,
+      });
+      if (!res.success) {
+        setOpError(res.error);
+        return;
+      }
+      await invalidate();
+    } catch (e) {
+      setOpError(typeof e === "string" ? e : "切换分支失败");
+    }
   };
 
   const runOp = async (kind: OpKind) => {
@@ -187,10 +206,18 @@ export default function RepoView({ repoPath }: RepoViewProps) {
         </div>
       )}
 
-      <div className="flex min-h-0 flex-1 flex-col">
-        <GraphView repoPath={repoPath} />
-        <ChangesDrawer repoPath={repoPath} />
+      <div className="flex min-h-0 flex-1">
+        <RefSidebar
+          repoPath={repoPath}
+          currentBranch={repo.head_branch}
+          onCheckout={handleCheckout}
+          onError={setOpError}
+        />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <GraphView repoPath={repoPath} />
+        </div>
       </div>
+      <ChangesDrawer repoPath={repoPath} />
     </div>
   );
 }
