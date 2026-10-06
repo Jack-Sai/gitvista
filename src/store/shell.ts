@@ -12,6 +12,9 @@ interface ShellState {
   cloneOpen: boolean;
   openClone: () => void;
   closeClone: () => void;
+  settingsOpen: boolean;
+  openSettings: () => void;
+  closeSettings: () => void;
 }
 
 export const useShellStore = create<ShellState>()(
@@ -28,6 +31,9 @@ export const useShellStore = create<ShellState>()(
       cloneOpen: false,
       openClone: () => set({ cloneOpen: true }),
       closeClone: () => set({ cloneOpen: false }),
+      settingsOpen: false,
+      openSettings: () => set({ settingsOpen: true }),
+      closeSettings: () => set({ settingsOpen: false }),
     }),
     {
       name: "gitvista-shell",

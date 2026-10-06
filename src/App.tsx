@@ -4,6 +4,7 @@ import Sidebar from "./components/shell/Sidebar";
 import Dashboard from "./components/dashboard/Dashboard";
 import ScanDialog from "./components/shell/ScanDialog";
 import CloneDialog from "./components/shell/CloneDialog";
+import SettingsDialog from "./components/shell/SettingsDialog";
 import RepoView from "./components/repo/RepoView";
 import { useReposStore } from "./store/repos";
 import { useShellStore } from "./store/shell";
@@ -18,12 +19,16 @@ function App() {
       if (e.key === "Escape") {
         if (shell.scanOpen) shell.closeScan();
         else if (shell.cloneOpen) shell.closeClone();
+        else if (shell.settingsOpen) shell.closeSettings();
         return;
       }
       const mod = e.metaKey || e.ctrlKey;
       if (!mod) return;
       const key = e.key.toLowerCase();
-      if (key === "b" && !e.shiftKey) {
+      if (key === "," && !e.shiftKey) {
+        e.preventDefault();
+        shell.openSettings();
+      } else if (key === "b" && !e.shiftKey) {
         e.preventDefault();
         shell.toggleSidebar();
       } else if (key === "j" && !e.shiftKey) {
@@ -53,6 +58,7 @@ function App() {
       </div>
       <ScanDialog />
       <CloneDialog />
+      <SettingsDialog />
     </div>
   );
 }

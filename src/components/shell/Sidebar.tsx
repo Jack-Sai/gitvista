@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { FolderOpen, FolderSearch, Plus, Search } from "lucide-react";
+import { FolderOpen, FolderSearch, Plus, Search, Settings } from "lucide-react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useShellStore } from "../../store/shell";
 import { useReposStore } from "../../store/repos";
@@ -61,6 +61,7 @@ export default function Sidebar() {
   const collapsed = useShellStore((s) => s.sidebarCollapsed);
   const openScan = useShellStore((s) => s.openScan);
   const openClone = useShellStore((s) => s.openClone);
+  const openSettings = useShellStore((s) => s.openSettings);
   const repos = useReposStore((s) => s.repos);
   const addRepos = useReposStore((s) => s.addRepos);
   const [query, setQuery] = useState("");
@@ -171,6 +172,17 @@ export default function Sidebar() {
             ))}
           </div>
         )}
+      </div>
+
+      <div className="flex shrink-0 items-center justify-end border-t border-border-subtle px-2 py-1.5">
+        <button
+          type="button"
+          onClick={openSettings}
+          title="设置（⌘/Ctrl + ,）"
+          className="flex h-7 w-7 items-center justify-center rounded-md text-fg-muted transition-colors duration-120 hover:bg-hover hover:text-fg-primary"
+        >
+          <Settings size={14} strokeWidth={1.5} />
+        </button>
       </div>
     </aside>
   );

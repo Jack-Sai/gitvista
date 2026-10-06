@@ -1,5 +1,6 @@
 mod commands;
 
+use commands::auth::{delete_github_token, get_github_token, store_github_token};
 use commands::graph::get_commit_graph;
 use commands::remote::{git_clone, git_fetch, git_pull, git_push};
 use commands::repos::{open_repository, scan_repositories};
@@ -24,7 +25,10 @@ pub fn run() {
             git_fetch,
             git_pull,
             git_push,
-            git_clone
+            git_clone,
+            store_github_token,
+            get_github_token,
+            delete_github_token
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
