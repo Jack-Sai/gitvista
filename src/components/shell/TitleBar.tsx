@@ -6,6 +6,7 @@ export default function TitleBar() {
   const mode = useThemeStore((s) => s.mode);
   const toggleTheme = useThemeStore((s) => s.toggle);
   const toggleSidebar = useShellStore((s) => s.toggleSidebar);
+  const openSettings = useShellStore((s) => s.openSettings);
   const isDark =
     mode === "dark" ||
     (mode === "system" &&
@@ -60,6 +61,7 @@ export default function TitleBar() {
         </button>
         <button
           type="button"
+          onClick={openSettings}
           title="设置 (⌘,)"
           className="flex h-7 w-7 items-center justify-center rounded-md text-fg-secondary transition-colors duration-120 hover:bg-hover hover:text-fg-primary"
         >
