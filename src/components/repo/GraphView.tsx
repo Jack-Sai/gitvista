@@ -60,7 +60,7 @@ export default function GraphView({ repoPath }: GraphViewProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const themeMode = useThemeStore((s) => s.mode);
+  useThemeStore((s) => s.mode);
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, isError } =
     useInfiniteQuery({
@@ -123,7 +123,6 @@ export default function GraphView({ repoPath }: GraphViewProps) {
     const palette = lanePalette();
     const cellW = Math.max((laneWidth - 8) / Math.max(maxLane, 1), 8);
     const x = (lane: number) => 6 + lane * cellW + cellW / 2;
-    const scrollTop = scroll.scrollTop;
     const items = virtualizer.getVirtualItems();
 
     ctx.lineCap = "round";
@@ -133,7 +132,7 @@ export default function GraphView({ repoPath }: GraphViewProps) {
       const row = rows[item.index];
       if (!row) continue;
 
-      const top = item.start - scrollTop;
+      const top = item.start;
       const center = top + ROW_H / 2;
       const bottom = top + ROW_H;
       const isHovered = hoveredIndex === item.index;
@@ -183,21 +182,14 @@ export default function GraphView({ repoPath }: GraphViewProps) {
 
   useEffect(() => {
     draw();
-  }, [draw, themeMode]);
+  });
 
   useEffect(() => {
     const scroll = scrollRef.current;
     if (!scroll) return;
-    let raf = 0;
-    const onScroll = () => {
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(draw);
-    };
-    scroll.addEventListener("scroll", onScroll, { passive: true });
-    return () => {
-      scroll.removeEventListener("scroll", onScroll);
-      cancelAnimationFrame(raf);
-    };
+    const observer = new ResizeObserver(() => draw());
+    observer.observe(scroll);
+    return () => observer.disconnect();
   }, [draw]);
 
   useEffect(() => {
