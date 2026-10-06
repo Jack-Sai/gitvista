@@ -1,6 +1,7 @@
 mod commands;
 
 use commands::graph::get_commit_graph;
+use commands::remote::{git_clone, git_fetch, git_pull, git_push};
 use commands::repos::{open_repository, scan_repositories};
 use commands::workdir::{
     commit_changes, get_diff, get_worktree_status, stage_files, unstage_files,
@@ -19,7 +20,11 @@ pub fn run() {
             stage_files,
             unstage_files,
             get_diff,
-            commit_changes
+            commit_changes,
+            git_fetch,
+            git_pull,
+            git_push,
+            git_clone
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
