@@ -19,6 +19,7 @@ import type { RefInfo, RefsList } from "../../types/refs";
 import { absoluteTime } from "../../lib/time";
 import ContextMenu, { type ContextMenuItem } from "../shell/ContextMenu";
 import ConfirmDialog, { type ConfirmOptions } from "../shell/ConfirmDialog";
+import CompareDialog from "./CompareDialog";
 
 interface GitOpResult {
   success: boolean;
@@ -105,6 +106,7 @@ export default function RefSidebar({
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [renaming, setRenaming] = useState<{ name: string; value: string } | null>(null);
   const [confirm, setConfirm] = useState<ConfirmOptions | null>(null);
+  const [comparing, setComparing] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["refs", repoPath],
@@ -298,6 +300,12 @@ export default function RefSidebar({
                 "变基失败",
               ),
           }),
+      },
+      {
+        label: "与当前分支比较…",
+        icon: GitMerge,
+        disabled: isHead || !currentBranch,
+        onClick: () => setComparing(ref.name),
       },
       {
         label: "推送到 origin",
@@ -495,6 +503,14 @@ export default function RefSidebar({
         )}
       </AnimatePresence>
       <ConfirmDialog options={confirm} onClose={() => setConfirm(null)} />
+      {comparing && currentBranch && (
+        <CompareDialog
+          repoPath={repoPath}
+          base={currentBranch}
+          target={comparing}
+          onClose={() => setComparing(null)}
+        />
+      )}
     </aside>
   );
 }

@@ -1,10 +1,14 @@
-import { useEffect, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  Check,
+  ChevronDown,
   ChevronLeft,
   Download,
+  GitBranch,
   GitPullRequestArrow,
   Loader2,
+  RefreshCw,
   Upload,
   X,
 } from "lucide-react";
@@ -13,6 +17,7 @@ import GraphView from "./GraphView";
 import RefSidebar from "./RefSidebar";
 import ChangesDrawer from "../workbench/ChangesDrawer";
 import { useReposStore } from "../../store/repos";
+import type { RefsList } from "../../types/refs";
 
 interface GitOpResult {
   success: boolean;
@@ -33,6 +38,30 @@ export default function RepoView({ repoPath }: RepoViewProps) {
   const queryClient = useQueryClient();
   const [op, setOp] = useState<OpKind | null>(null);
   const [opError, setOpError] = useState<string | null>(null);
+  const [branchOpen, setBranchOpen] = useState(false);
+  const [branchFilter, setBranchFilter] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await invalidate();
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const { data: refs } = useQuery({
+    queryKey: ["refs", repoPath],
+    queryFn: () => invoke<RefsList>("list_refs", { repoPath }),
+  });
+
+  const filteredBranches = useMemo(() => {
+    const q = branchFilter.trim().toLowerCase();
+    const list = refs?.locals ?? [];
+    return q ? list.filter((b) => b.name.toLowerCase().includes(q)) : list;
+  }, [refs, branchFilter]);
 
   const invalidate = async () => {
     await queryClient.invalidateQueries({ queryKey: ["worktree", repoPath] });
@@ -155,9 +184,90 @@ export default function RepoView({ repoPath }: RepoViewProps) {
           {repo.name}
         </span>
 
-        <span className="rounded-md border border-border-subtle bg-surface px-2 py-0.5 font-mono text-[12px] text-fg-secondary">
-          {repo.head_branch ?? "detached"}
-        </span>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => {
+              setBranchFilter("");
+              setBranchOpen((v) => !v);
+            }}
+            title="切换分支"
+            className="flex h-7 items-center gap-1.5 rounded-md border border-border-subtle bg-surface px-2 font-mono text-[12px] text-fg-secondary transition-colors duration-120 hover:bg-hover hover:text-fg-primary"
+          >
+            <GitBranch size={12} strokeWidth={1.5} />
+            {repo.head_branch ?? "detached"}
+            <ChevronDown size={12} strokeWidth={1.5} className="text-fg-muted" />
+          </button>
+          {branchOpen && (
+            <>
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setBranchOpen(false)}
+              />
+              <div className="absolute top-full left-0 z-50 mt-1 w-64 overflow-hidden rounded-md border border-border-default bg-elevated shadow-lg">
+                <div className="border-b border-border-subtle p-2">
+                  <input
+                    autoFocus
+                    type="text"
+                    value={branchFilter}
+                    onChange={(e) => setBranchFilter(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") setBranchOpen(false);
+                      if (e.key === "Enter" && filteredBranches.length > 0) {
+                        void handleCheckout(filteredBranches[0].name);
+                        setBranchOpen(false);
+                      }
+                    }}
+                    placeholder="筛选本地分支…"
+                    className="h-7 w-full rounded-md border border-border-subtle bg-base px-2 text-[12px] text-fg-primary outline-none placeholder:text-fg-muted focus:border-accent"
+                  />
+                </div>
+                <div className="max-h-64 overflow-y-auto py-1">
+                  {filteredBranches.map((b) => (
+                    <button
+                      key={b.name}
+                      type="button"
+                      onClick={() => {
+                        if (!b.is_head) void handleCheckout(b.name);
+                        setBranchOpen(false);
+                      }}
+                      className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] transition-colors duration-120 hover:bg-hover ${
+                        b.is_head
+                          ? "text-accent"
+                          : "text-fg-secondary hover:text-fg-primary"
+                      }`}
+                    >
+                      {b.is_head ? (
+                        <Check size={12} strokeWidth={2} className="shrink-0" />
+                      ) : (
+                        <span className="w-3 shrink-0" />
+                      )}
+                      <span className="min-w-0 flex-1 truncate font-mono">
+                        {b.name}
+                      </span>
+                      {(b.ahead > 0 || b.behind > 0) && (
+                        <span className="shrink-0 font-mono text-[10px] tabular-nums">
+                          {b.ahead > 0 && (
+                            <span className="text-warning">↑{b.ahead}</span>
+                          )}
+                          {b.ahead > 0 && b.behind > 0 && " "}
+                          {b.behind > 0 && (
+                            <span className="text-danger">↓{b.behind}</span>
+                          )}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                  {filteredBranches.length === 0 && (
+                    <div className="px-3 py-2 text-[12px] text-fg-muted">
+                      无匹配分支
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
 
         {(repo.ahead > 0 || repo.behind > 0) && (
           <span className="font-mono text-[12px] tabular-nums">
@@ -188,6 +298,20 @@ export default function RepoView({ repoPath }: RepoViewProps) {
             "Push",
             <Upload size={13} strokeWidth={1.5} />,
           )}
+          <button
+            type="button"
+            onClick={() => void handleRefresh()}
+            disabled={refreshing || op !== null}
+            title="刷新仓库状态"
+            className="flex h-7 items-center gap-1.5 rounded-md border border-border-default px-2.5 text-[12px] text-fg-secondary transition-colors duration-120 hover:bg-hover hover:text-fg-primary disabled:opacity-50"
+          >
+            <RefreshCw
+              size={13}
+              strokeWidth={1.5}
+              className={refreshing ? "animate-spin" : undefined}
+            />
+            刷新
+          </button>
         </div>
       </div>
 
